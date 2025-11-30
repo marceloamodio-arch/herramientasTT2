@@ -1,1 +1,2 @@
-# herramientasTT2
+# calculadoraLRT
+Calculadora riesgos laborales
