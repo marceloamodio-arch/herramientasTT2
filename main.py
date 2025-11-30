@@ -262,7 +262,6 @@ def mostrar_header():
         
         if st.button("🚪 Cerrar Sesión", use_container_width=True, type="secondary"):
             st.session_state.clear()
-            st.query_params.clear()
             st.rerun()
     
     st.markdown("---")
@@ -276,7 +275,6 @@ def ejecutar_aplicacion(app_key):
         st.error("🚫 No tienes permisos para acceder a esta aplicación. Solo administradores.")
         if st.button("⬅️ Volver al menú"):
             st.session_state.app_actual = None
-            st.query_params['app'] = 'menu'
             st.rerun()
         return
     
@@ -286,7 +284,6 @@ def ejecutar_aplicacion(app_key):
         with col1:
             if st.button("⬅️ Volver", key="btn_volver"):
                 st.session_state.app_actual = None
-                st.query_params['app'] = 'menu'
                 st.rerun()
         
         with col2:
@@ -320,7 +317,6 @@ def ejecutar_aplicacion(app_key):
             
             if st.button("Volver al menú principal"):
                 st.session_state.app_actual = None
-                st.query_params['app'] = 'menu'
                 st.rerun()
                 
         except Exception as e:
@@ -329,7 +325,6 @@ def ejecutar_aplicacion(app_key):
             
             if st.button("Volver al menú principal", key="btn_exec_error"):
                 st.session_state.app_actual = None
-                st.query_params['app'] = 'menu'
                 st.rerun()
     
     except Exception as e:
@@ -338,7 +333,6 @@ def ejecutar_aplicacion(app_key):
         
         if st.button("Volver al menú principal", key="btn_error_volver"):
             st.session_state.app_actual = None
-            st.query_params['app'] = 'menu'
             st.rerun()
 
 def mostrar_menu_principal():
@@ -392,7 +386,6 @@ def mostrar_menu_principal():
                         
                         if st.button(f"Abrir aplicación", key=f"btn_{app_key}", use_container_width=True):
                             st.session_state.app_actual = app_key
-                            st.query_params['app'] = app_key
                             st.rerun()
     
     # Footer
@@ -415,17 +408,7 @@ def main():
     if 'autenticado' not in st.session_state:
         st.session_state.autenticado = False
     
-    # Sincronizar app_actual con query_params para permitir navegación con flechas del navegador
-    query_params = st.query_params
-    
-    # Si hay un parámetro 'app' en la URL, actualizar session_state
-    if 'app' in query_params:
-        app_from_url = query_params['app']
-        if app_from_url == 'menu':
-            st.session_state.app_actual = None
-        else:
-            st.session_state.app_actual = app_from_url
-    elif 'app_actual' not in st.session_state:
+    if 'app_actual' not in st.session_state:
         st.session_state.app_actual = None
     
     # Verificar autenticación
@@ -436,9 +419,6 @@ def main():
         if st.session_state.app_actual:
             ejecutar_aplicacion(st.session_state.app_actual)
         else:
-            # Asegurar que la URL refleje que estamos en el menú
-            if query_params.get('app') != 'menu':
-                st.query_params['app'] = 'menu'
             mostrar_menu_principal()
 
 if __name__ == "__main__":
