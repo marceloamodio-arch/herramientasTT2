@@ -246,10 +246,7 @@ def mostrar_login():
         # Información de ayuda
         with st.expander("ℹ️ Ayuda e Información"):
             st.markdown("""
-                **Credenciales por defecto:**
-                - Usuario: `admin`
-                - Contraseña: `admin123`
-                
+                                
                 **Niveles de usuario:**
                 - **Normal**: Acceso a calculadoras y herramientas
                 - **Administrador**: Acceso completo + gestión del sistema
