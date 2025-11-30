@@ -16,7 +16,14 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 # Importar módulo de autenticación
 from utils.auth import AuthSystem
-from utils.session_manager import SessionManager
+
+# Importar session manager (opcional - para persistencia de sesión)
+try:
+    from utils.session_manager import SessionManager
+    SESSION_MANAGER_AVAILABLE = True
+except ImportError:
+    SESSION_MANAGER_AVAILABLE = False
+    SessionManager = None
 
 # Configuración de la página
 st.set_page_config(
@@ -170,7 +177,7 @@ def load_custom_css():
 def mostrar_login():
     """Muestra pantalla de login"""
     auth = AuthSystem()
-    session_mgr = SessionManager()
+    session_mgr = SessionManager() if SESSION_MANAGER_AVAILABLE else None
     
     # Header
     st.markdown("""
@@ -200,7 +207,10 @@ def mostrar_login():
                 placeholder="Ingresa tu contraseña"
             )
             
-            recordar = st.checkbox("🔒 Mantener sesión iniciada", value=True, help="Mantiene tu sesión activa incluso al refrescar la página")
+            # Solo mostrar checkbox si SessionManager está disponible
+            recordar = False
+            if SESSION_MANAGER_AVAILABLE:
+                recordar = st.checkbox("🔒 Mantener sesión iniciada", value=True, help="Mantiene tu sesión activa incluso al refrescar la página")
             
             col_btn1, col_btn2 = st.columns([1, 1])
             
@@ -219,8 +229,8 @@ def mostrar_login():
                         st.session_state.autenticado = True
                         st.session_state.usuario = usuario_data
                         
-                        # Si marcó "recordar sesión", crear sesión persistente
-                        if recordar:
+                        # Si marcó "recordar sesión" y está disponible, crear sesión persistente
+                        if recordar and SESSION_MANAGER_AVAILABLE and session_mgr:
                             session_id = session_mgr.create_session(username, usuario_data)
                             st.session_state.session_id = session_id
                             # Guardar en URL para persistencia
@@ -274,7 +284,7 @@ def mostrar_header():
         
         if st.button("🚪 Cerrar Sesión", use_container_width=True, type="secondary"):
             # Borrar sesión persistente si existe
-            if 'session_id' in st.session_state:
+            if SESSION_MANAGER_AVAILABLE and 'session_id' in st.session_state:
                 session_mgr = SessionManager()
                 session_mgr.delete_session(st.session_state.session_id)
             
@@ -359,6 +369,60 @@ def mostrar_menu_principal():
     """Muestra el menú principal con todas las aplicaciones"""
     mostrar_header()
     
+    # Cargar datasets para mostrar últimos datos
+    try:
+        import pandas as pd
+        
+        df_ripte = pd.read_csv("data/dataset_ripte.csv")
+        df_ripte['fecha'] = pd.to_datetime(df_ripte['año'].astype(str) + '-' + 
+                                          df_ripte['mes'].str[:3].map({
+                                              'Ene': '01', 'Feb': '02', 'Mar': '03', 'Abr': '04',
+                                              'May': '05', 'Jun': '06', 'Jul': '07', 'Ago': '08',
+                                              'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dic': '12'
+                                          }) + '-01')
+        
+        df_ipc = pd.read_csv("data/dataset_ipc.csv")
+        df_ipc['periodo'] = pd.to_datetime(df_ipc['periodo'])
+        
+        df_tasa = pd.read_csv("data/dataset_tasa.csv")
+        df_tasa['Desde'] = pd.to_datetime(df_tasa['Desde'])
+        df_tasa['Hasta'] = pd.to_datetime(df_tasa['Hasta'])
+        
+        # Obtener últimos datos
+        ultimo_ripte_txt = ""
+        ultimo_ipc_txt = ""
+        ultima_tasa_txt = ""
+        
+        if not df_ripte.empty:
+            ultimo_ripte = df_ripte.iloc[-1]
+            fecha_ripte = ultimo_ripte['fecha']
+            valor_ripte = ultimo_ripte['índice RIPTE']
+            mes_ripte = fecha_ripte.month
+            año_ripte = fecha_ripte.year
+            ultimo_ripte_txt = f"RIPTE {mes_ripte}/{año_ripte}: {valor_ripte:,.0f}"
+        
+        if not df_ipc.empty:
+            ultimo_ipc = df_ipc.iloc[-1]
+            fecha_ipc = ultimo_ipc['periodo']
+            variacion_ipc = ultimo_ipc['variacion_mensual']
+            mes_ipc = fecha_ipc.month
+            año_ipc = fecha_ipc.year
+            ultimo_ipc_txt = f"IPC {mes_ipc}/{año_ipc}: {variacion_ipc:.2f}%"
+        
+        if not df_tasa.empty:
+            ultima_tasa = df_tasa.iloc[0]
+            valor_tasa = ultima_tasa['Valor']
+            fecha_hasta = ultima_tasa['Hasta']
+            fecha_txt = fecha_hasta.strftime("%d/%m/%Y")
+            ultima_tasa_txt = f"TASA {fecha_txt}: {valor_tasa:.2f}%"
+        
+        # Mostrar alerta con últimos datos
+        st.warning(f"**📊 Últimos Datos:** {ultimo_ripte_txt} | {ultimo_ipc_txt} | {ultima_tasa_txt}")
+    
+    except Exception as e:
+        # Si hay error, simplemente no mostrar la alerta
+        pass
+    
     # Mensaje de bienvenida personalizado
     usuario = st.session_state.usuario
     
@@ -431,8 +495,8 @@ def main():
     if 'app_actual' not in st.session_state:
         st.session_state.app_actual = None
     
-    # Intentar restaurar sesión persistente
-    if not st.session_state.autenticado:
+    # Intentar restaurar sesión persistente (solo si está disponible)
+    if not st.session_state.autenticado and SESSION_MANAGER_AVAILABLE:
         session_mgr = SessionManager()
         
         # Buscar session_id en query params o en session_state
