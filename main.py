@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 # Importar módulo de autenticación
 from utils.auth import AuthSystem
+from utils.session_manager import SessionManager
 
 # Configuración de la página
 st.set_page_config(
@@ -169,6 +170,7 @@ def load_custom_css():
 def mostrar_login():
     """Muestra pantalla de login"""
     auth = AuthSystem()
+    session_mgr = SessionManager()
     
     # Header
     st.markdown("""
@@ -198,6 +200,8 @@ def mostrar_login():
                 placeholder="Ingresa tu contraseña"
             )
             
+            recordar = st.checkbox("🔒 Mantener sesión iniciada", value=True, help="Mantiene tu sesión activa incluso al refrescar la página")
+            
             col_btn1, col_btn2 = st.columns([1, 1])
             
             with col_btn1:
@@ -214,6 +218,14 @@ def mostrar_login():
                         # Guardar usuario en sesión
                         st.session_state.autenticado = True
                         st.session_state.usuario = usuario_data
+                        
+                        # Si marcó "recordar sesión", crear sesión persistente
+                        if recordar:
+                            session_id = session_mgr.create_session(username, usuario_data)
+                            st.session_state.session_id = session_id
+                            # Guardar en URL para persistencia
+                            st.query_params['sid'] = session_id
+                        
                         st.success(f"✅ Bienvenido, {usuario_data['nombre_completo'] or usuario_data['username']}!")
                         st.rerun()
                     else:
@@ -261,6 +273,14 @@ def mostrar_header():
         st.caption(f"Nivel: {usuario['nivel']}")
         
         if st.button("🚪 Cerrar Sesión", use_container_width=True, type="secondary"):
+            # Borrar sesión persistente si existe
+            if 'session_id' in st.session_state:
+                session_mgr = SessionManager()
+                session_mgr.delete_session(st.session_state.session_id)
+            
+            # Limpiar query params
+            st.query_params.clear()
+            
             st.session_state.clear()
             st.rerun()
     
@@ -410,6 +430,28 @@ def main():
     
     if 'app_actual' not in st.session_state:
         st.session_state.app_actual = None
+    
+    # Intentar restaurar sesión persistente
+    if not st.session_state.autenticado:
+        session_mgr = SessionManager()
+        
+        # Buscar session_id en query params o en session_state
+        session_id = None
+        if 'sid' in st.query_params:
+            session_id = st.query_params['sid']
+        elif 'session_id' in st.session_state:
+            session_id = st.session_state.session_id
+        
+        if session_id:
+            user_data = session_mgr.get_session(session_id)
+            
+            if user_data:
+                # Sesión válida encontrada - restaurar
+                st.session_state.autenticado = True
+                st.session_state.usuario = user_data
+                st.session_state.session_id = session_id
+                # Mantener session_id en URL
+                st.query_params['sid'] = session_id
     
     # Verificar autenticación
     if not st.session_state.autenticado:
